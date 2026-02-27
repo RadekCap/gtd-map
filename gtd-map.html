@@ -1,0 +1,789 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GTD - Getting Things Done</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+  h1 {
+    text-align: center;
+    font-size: 2.2rem;
+    font-weight: 300;
+    letter-spacing: 0.3em;
+    margin-bottom: 0.4rem;
+    color: #f8fafc;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 0.9rem;
+    color: #64748b;
+    margin-bottom: 2rem;
+    letter-spacing: 0.1em;
+  }
+
+  /* ── Overview diagram (horizontal pipeline) ── */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin: 0 auto 1rem;
+    max-width: 1000px;
+    flex-wrap: wrap;
+  }
+  .pipe-step {
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+  .pipe-arrow {
+    width: 36px;
+    height: 2px;
+    background: #334155;
+    position: relative;
+  }
+  .pipe-arrow::after {
+    content: '';
+    position: absolute;
+    right: -5px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 7px solid #334155;
+  }
+
+  /* ── Phase tabs ── */
+  .phases {
+    display: flex;
+    justify-content: center;
+    gap: 0.4rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+  .phase {
+    padding: 0.65rem 1.4rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    border: 1px solid #334155;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.3s;
+    user-select: none;
+  }
+  .phase:hover { border-color: #64748b; color: #cbd5e1; }
+  .phase.active {
+    border-color: var(--phase-color, #3b82f6);
+    color: #fff;
+    background: var(--phase-color, #3b82f6);
+    box-shadow: 0 0 20px color-mix(in srgb, var(--phase-color, #3b82f6) 40%, transparent);
+  }
+
+  /* ── Section panels ── */
+  .panel { display: none; animation: fadeIn 0.4s ease; }
+  .panel.visible { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── Section header ── */
+  .section-head {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+  .section-head h2 {
+    font-size: 1.6rem;
+    font-weight: 400;
+    margin-bottom: 0.5rem;
+    color: #f1f5f9;
+  }
+  .section-head p {
+    color: #94a3b8;
+    font-size: 0.95rem;
+    max-width: 600px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  /* ── Cards grid ── */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    max-width: 900px;
+    margin: 0 auto 2rem;
+  }
+  .card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 14px;
+    padding: 1.4rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+  }
+  .card-icon {
+    font-size: 1.6rem;
+    margin-bottom: 0.6rem;
+    display: block;
+  }
+  .card h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+    color: #e2e8f0;
+  }
+  .card p {
+    font-size: 0.82rem;
+    color: #94a3b8;
+    line-height: 1.5;
+  }
+  .card-accent {
+    width: 100%;
+    height: 3px;
+    border-radius: 2px;
+    margin-bottom: 1rem;
+  }
+
+  /* ── Principle box ── */
+  .principle {
+    max-width: 700px;
+    margin: 0 auto 2rem;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 14px;
+    padding: 1.5rem 2rem;
+    text-align: center;
+  }
+  .principle .key {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+  }
+  .principle p { color: #94a3b8; font-size: 0.9rem; line-height: 1.6; }
+
+  /* ── Flowchart classes ── */
+  .fc { display: flex; flex-direction: column; align-items: center; }
+  .fc-arrow {
+    width: 2px; height: 30px; background: #475569; position: relative;
+  }
+  .fc-arrow::after {
+    content: ''; position: absolute; bottom: -5px; left: 50%; transform: translateX(-50%);
+    border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid #475569;
+  }
+  .fc-box {
+    padding: 0.8rem 1.5rem; border-radius: 10px; text-align: center;
+    font-size: 0.9rem; font-weight: 500; white-space: nowrap;
+    transition: transform 0.2s, box-shadow 0.2s; cursor: default;
+  }
+  .fc-box:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,0,0,0.3); }
+  .fc-diamond {
+    padding: 0.8rem 1.5rem; border-radius: 10px; text-align: center;
+    font-size: 0.95rem; font-weight: 600;
+    border: 2px solid #3b82f6; background: #1e293b; color: #93c5fd;
+  }
+  .fc-label {
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 0.2rem 0.6rem; border-radius: 999px; margin-bottom: 0.4rem;
+  }
+  .fc-label.yes { color: #4ade80; }
+  .fc-label.no  { color: #f87171; }
+  .fc-sub {
+    font-size: 0.75rem; color: #64748b; margin-top: 0.3rem;
+  }
+
+  /* ── Organize: list containers ── */
+  .lists-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    max-width: 900px;
+    margin: 0 auto 2rem;
+  }
+  .list-card {
+    background: #1e293b;
+    border-radius: 14px;
+    padding: 1.2rem;
+    border-left: 4px solid var(--lc, #3b82f6);
+  }
+  .list-card h3 {
+    font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem; color: #e2e8f0;
+  }
+  .list-card ul {
+    list-style: none; padding: 0;
+  }
+  .list-card li {
+    font-size: 0.82rem; color: #94a3b8; padding: 0.25rem 0; padding-left: 1rem;
+    position: relative; line-height: 1.4;
+  }
+  .list-card li::before {
+    content: '';
+    position: absolute; left: 0; top: 0.55rem;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--lc, #3b82f6);
+  }
+
+  /* ── Reflect: weekly review steps ── */
+  .review-steps {
+    max-width: 700px;
+    margin: 0 auto 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+  .review-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    padding: 1.2rem;
+  }
+  .review-num {
+    width: 32px; height: 32px; flex-shrink: 0;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem; font-weight: 700;
+    background: var(--rn-bg, #1e3a5f); color: var(--rn-fg, #93c5fd);
+  }
+  .review-step h4 { font-size: 0.95rem; font-weight: 600; color: #e2e8f0; margin-bottom: 0.3rem; }
+  .review-step p  { font-size: 0.82rem; color: #94a3b8; line-height: 1.5; }
+
+  /* ── Engage: criteria columns ── */
+  .criteria-row {
+    display: flex;
+    gap: 1.5rem;
+    max-width: 900px;
+    margin: 0 auto 2rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .criterion {
+    flex: 1;
+    min-width: 180px;
+    max-width: 220px;
+    text-align: center;
+  }
+  .criterion-ring {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    border: 3px solid var(--cr, #3b82f6);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 0.8rem;
+    font-size: 0.85rem; font-weight: 700; color: var(--cr, #3b82f6);
+  }
+  .criterion h4 { font-size: 0.95rem; color: #e2e8f0; margin-bottom: 0.3rem; }
+  .criterion p  { font-size: 0.8rem; color: #94a3b8; line-height: 1.5; }
+
+  /* ── Horizons of Focus ── */
+  .horizons {
+    max-width: 500px;
+    margin: 2rem auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    align-items: center;
+  }
+  .horizon {
+    width: 100%;
+    text-align: center;
+    padding: 0.7rem 1rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    position: relative;
+  }
+  .horizon .h-label { color: #64748b; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; }
+  .horizon .h-title { color: #e2e8f0; }
+  .horizon-arrow {
+    width: 2px; height: 16px; background: #334155;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center;
+    color: #475569;
+    font-size: 0.8rem;
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #1e293b;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 700px) {
+    body { padding: 1rem 0.5rem; }
+    h1 { font-size: 1.5rem; }
+    .cards { grid-template-columns: 1fr; }
+    .lists-grid { grid-template-columns: 1fr; }
+    .criteria-row { flex-direction: column; align-items: center; }
+  }
+</style>
+</head>
+<body>
+
+<h1>GETTING THINGS DONE</h1>
+<p class="subtitle">David Allen's GTD Workflow &mdash; The Complete Map</p>
+
+<!-- ── Phase tabs ── -->
+<div class="phases" id="phaseTabs">
+  <div class="phase active" data-panel="capture"  style="--phase-color:#6366f1;">1. Capture</div>
+  <div class="phase"        data-panel="clarify"  style="--phase-color:#3b82f6;">2. Clarify</div>
+  <div class="phase"        data-panel="organize" style="--phase-color:#10b981;">3. Organize</div>
+  <div class="phase"        data-panel="reflect"  style="--phase-color:#f59e0b;">4. Reflect</div>
+  <div class="phase"        data-panel="engage"   style="--phase-color:#ef4444;">5. Engage</div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     PHASE 1 — CAPTURE
+     ══════════════════════════════════════════════════ -->
+<div class="panel visible" id="panel-capture">
+
+  <div class="section-head">
+    <h2 style="color:#a5b4fc;">Capture</h2>
+    <p>Get <strong>everything</strong> out of your head and into a trusted external system. 100% capture is the goal &mdash; your brain is for having ideas, not holding them.</p>
+  </div>
+
+  <div class="principle">
+    <div class="key" style="color:#a5b4fc;">The Core Rule</div>
+    <p>If it's on your mind, it's not getting done. Capture it externally so your mind is free to think, not to remember.</p>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <div class="card-accent" style="background: linear-gradient(90deg, #6366f1, #818cf8);"></div>
+      <h3>Physical Inbox</h3>
+      <p>Paper tray on your desk. Toss in mail, notes, receipts, printouts &mdash; anything physical that needs processing.</p>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background: linear-gradient(90deg, #6366f1, #818cf8);"></div>
+      <h3>Digital Inbox</h3>
+      <p>A note-taking app, email inbox, or task app. Quick-capture thoughts, ideas, and commitments as they come.</p>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background: linear-gradient(90deg, #6366f1, #818cf8);"></div>
+      <h3>Voice / On-the-go</h3>
+      <p>Voice memos, pocket notebook, phone camera. Capture in the moment so nothing slips through the cracks.</p>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background: linear-gradient(90deg, #6366f1, #818cf8);"></div>
+      <h3>Triggers Checklist</h3>
+      <p>Walk through areas of life &amp; work to surface open loops: commitments, projects, waiting-fors, someday ideas.</p>
+    </div>
+  </div>
+
+  <div class="principle">
+    <div class="key" style="color:#a5b4fc;">Key Habits</div>
+    <p>Use as few inboxes as possible, but as many as needed. Empty them regularly (in the Clarify phase). Never use your inbox as a to-do list.</p>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     PHASE 2 — CLARIFY / PROCESS
+     ══════════════════════════════════════════════════ -->
+<div class="panel" id="panel-clarify">
+
+  <div class="section-head">
+    <h2 style="color:#93c5fd;">Clarify / Process</h2>
+    <p>Take each item from your inbox and decide: <strong>What is it? Is it actionable?</strong> Transform vague stuff into clear next actions, projects, or reference.</p>
+  </div>
+
+  <div class="principle">
+    <div class="key" style="color:#93c5fd;">The Core Rule</div>
+    <p>Process top-down, one item at a time. Never put anything back into your inbox &mdash; decide and move it.</p>
+  </div>
+
+  <!-- Flowchart -->
+  <div class="fc" style="margin-bottom:2rem;">
+
+    <!-- INBOX -->
+    <div class="fc-box" style="background: linear-gradient(135deg,#3b82f6,#6366f1); color:#fff; border-radius:999px; padding:0.8rem 2.5rem; font-size:1.05rem; box-shadow: 0 4px 24px rgba(59,130,246,0.3);">
+      INBOX ITEM
+      <div class="fc-sub" style="color:rgba(255,255,255,0.7);">Pick the top item</div>
+    </div>
+    <div class="fc-arrow"></div>
+
+    <!-- What is it? -->
+    <div class="fc-diamond">What is it? What's the desired outcome?</div>
+    <div class="fc-sub" style="margin-bottom:0.5rem;">Clarify into something concrete</div>
+    <div class="fc-arrow"></div>
+
+    <!-- Is it actionable? -->
+    <div class="fc-diamond" style="border-color:#f59e0b; color:#fcd34d;">Is it actionable?</div>
+
+    <!-- Split: NO / YES -->
+    <div style="display:flex; justify-content:center; align-items:flex-start; gap:0; position:relative; padding-top:20px; width:100%; max-width:950px;">
+      <div style="position:absolute; top:0; left:16%; right:16%; height:2px; background:#475569;"></div>
+
+      <!-- ─── NO branch ─── -->
+      <div style="display:flex; flex-direction:column; align-items:center; position:relative; padding:0 1rem; flex:1;">
+        <div style="position:absolute; top:-20px; width:2px; height:20px; background:#475569;"></div>
+        <div class="fc-label no">No</div>
+        <div class="fc-arrow" style="height:16px;"></div>
+
+        <div style="display:flex; gap:1rem; justify-content:center; padding-top:20px; position:relative;">
+          <div style="position:absolute; top:0; left:12%; right:12%; height:2px; background:#475569;"></div>
+
+          <div style="display:flex; flex-direction:column; align-items:center; position:relative; padding:0 0.5rem;">
+            <div style="position:absolute; top:-20px; width:2px; height:20px; background:#475569;"></div>
+            <div class="fc-box" style="background:#991b1b; border:1px solid #dc2626; color:#fecaca;">Trash</div>
+            <div class="fc-sub">Delete it</div>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:center; position:relative; padding:0 0.5rem;">
+            <div style="position:absolute; top:-20px; width:2px; height:20px; background:#475569;"></div>
+            <div class="fc-box" style="background:#1e3a5f; border:1px solid #2563eb; color:#93c5fd;">Reference</div>
+            <div class="fc-sub">File it away</div>
+          </div>
+          <div style="display:flex; flex-direction:column; align-items:center; position:relative; padding:0 0.5rem;">
+            <div style="position:absolute; top:-20px; width:2px; height:20px; background:#475569;"></div>
+            <div class="fc-box" style="background:#3b0764; border:1px solid #7c3aed; color:#c4b5fd;">Someday / Maybe</div>
+            <div class="fc-sub">Incubate for later</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─── YES branch ─── -->
+      <div style="display:flex; flex-direction:column; align-items:center; position:relative; padding:0 1rem; flex:1.5;">
+        <div style="position:absolute; top:-20px; width:2px; height:20px; background:#475569;"></div>
+        <div class="fc-label yes">Yes</div>
+        <div class="fc-arrow" style="height:16px;"></div>
+
+        <div class="fc-diamond" style="font-size:0.85rem; border-color:#818cf8; color:#a5b4fc;">Multi-step outcome?</div>
+
+        <div style="display:flex; gap:0; justify-content:center; padding-top:20px; position:relative; width:100%;">
+          <div style="position:absolute; top:0; left:22%; right:22%; height:2px; background:#475569;"></div>
+
+          <div style="display:flex; flex-direction:column; align-items:center; position:relative; padding:0 1.5rem;">
+            <div style="position:absolute; top:-20px; width:2px; height:20px; background:#475569;"></div>
+            <div class="fc-label yes">Yes</div>
+            <div class="fc-box" style="background:#312e81; border:1px solid #818cf8; color:#c7d2fe;">Project</div>
+            <div class="fc-sub">Add to Projects list</div>
+            <div class="fc-arrow" style="height:14px;"></div>
+            <div style="font-size:0.78rem; color:#94a3b8; text-align:center;">Define next<br>action below</div>
+            <div style="width:2px; height:16px; border-left:2px dashed #475569;"></div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; align-items:center; position:relative; padding:0 1.5rem;">
+            <div style="position:absolute; top:-20px; width:2px; height:20px; background:#475569;"></div>
+            <div class="fc-label no">No</div>
+            <div style="font-size:0.8rem; color:#94a3b8;">Single action</div>
+          </div>
+        </div>
+
+        <div style="margin-top:1rem; display:flex; flex-direction:column; align-items:center;">
+          <div class="fc-diamond" style="font-size:0.85rem; border-color:#10b981; color:#6ee7b7;">What's the next action?</div>
+
+          <div style="display:flex; gap:0.5rem; justify-content:center; padding-top:22px; position:relative; width:100%;">
+            <div style="position:absolute; top:0; left:10%; right:10%; height:2px; background:#475569;"></div>
+
+            <div style="display:flex; flex-direction:column; align-items:center; position:relative; padding:0 1rem;">
+              <div style="position:absolute; top:-22px; width:2px; height:22px; background:#475569;"></div>
+              <div class="fc-label" style="color:#4ade80; font-size:0.65rem;">&lt; 2 min</div>
+              <div class="fc-box" style="background:#065f46; border:1px solid #10b981; color:#a7f3d0; font-size:0.95rem; font-weight:700;">DO IT NOW</div>
+              <div class="fc-sub">Just get it done</div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; align-items:center; position:relative; padding:0 1rem;">
+              <div style="position:absolute; top:-22px; width:2px; height:22px; background:#475569;"></div>
+              <div class="fc-label" style="color:#fbbf24; font-size:0.65rem;">Not me</div>
+              <div class="fc-box" style="background:#78350f; border:1px solid #f59e0b; color:#fde68a;">DELEGATE</div>
+              <div class="fc-sub">Waiting-for list</div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; align-items:center; position:relative; padding:0 1rem;">
+              <div style="position:absolute; top:-22px; width:2px; height:22px; background:#475569;"></div>
+              <div class="fc-label" style="color:#38bdf8; font-size:0.65rem;">&gt; 2 min</div>
+              <div class="fc-box" style="background:#1e3a5f; border:1px solid #0ea5e9; color:#7dd3fc;">DEFER</div>
+              <div class="fc-sub">Calendar or Next Actions</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     PHASE 3 — ORGANIZE
+     ══════════════════════════════════════════════════ -->
+<div class="panel" id="panel-organize">
+
+  <div class="section-head">
+    <h2 style="color:#6ee7b7;">Organize</h2>
+    <p>Place clarified items into the right <strong>buckets</strong>. Each outcome of the Clarify phase has a home. Your system only works if everything is in its place.</p>
+  </div>
+
+  <div class="principle">
+    <div class="key" style="color:#6ee7b7;">The Core Rule</div>
+    <p>Organize by <em>action required</em>, not by topic or priority. The categories below are all you need.</p>
+  </div>
+
+  <div class="lists-grid">
+
+    <div class="list-card" style="--lc:#818cf8;">
+      <h3>Projects List</h3>
+      <ul>
+        <li>Any outcome requiring 2+ actions</li>
+        <li>Define the desired outcome clearly</li>
+        <li>Every project must have a next action</li>
+        <li>Review weekly to keep current</li>
+      </ul>
+    </div>
+
+    <div class="list-card" style="--lc:#10b981;">
+      <h3>Next Actions</h3>
+      <ul>
+        <li>The very next physical, visible step</li>
+        <li>Organized by <strong>context</strong></li>
+        <li>@Computer, @Phone, @Office</li>
+        <li>@Errands, @Home, @Anywhere</li>
+      </ul>
+    </div>
+
+    <div class="list-card" style="--lc:#f59e0b;">
+      <h3>Waiting For</h3>
+      <ul>
+        <li>Delegated actions you're tracking</li>
+        <li>Record what, to whom, and when</li>
+        <li>Follow up during weekly review</li>
+        <li>Move to Next Actions when returned</li>
+      </ul>
+    </div>
+
+    <div class="list-card" style="--lc:#ef4444;">
+      <h3>Calendar</h3>
+      <ul>
+        <li>Date-specific actions only (hard landscape)</li>
+        <li>Day-specific information</li>
+        <li>Time-specific appointments</li>
+        <li>Do NOT use as a wish list</li>
+      </ul>
+    </div>
+
+    <div class="list-card" style="--lc:#7c3aed;">
+      <h3>Someday / Maybe</h3>
+      <ul>
+        <li>Ideas you're not committed to yet</li>
+        <li>Books, trips, skills, projects to consider</li>
+        <li>"Parking lot" for creative ideas</li>
+        <li>Review regularly &mdash; activate or drop</li>
+      </ul>
+    </div>
+
+    <div class="list-card" style="--lc:#2563eb;">
+      <h3>Reference</h3>
+      <ul>
+        <li>Non-actionable but useful information</li>
+        <li>Files, articles, manuals, contacts</li>
+        <li>Must be easily retrievable</li>
+        <li>General or topic-specific filing</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="principle">
+    <div class="key" style="color:#6ee7b7;">Project Support Material</div>
+    <p>Plans, notes, research, and other material for active projects. Keep separate from actions and reference. Organize per-project, not per-topic.</p>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     PHASE 4 — REFLECT / REVIEW
+     ══════════════════════════════════════════════════ -->
+<div class="panel" id="panel-reflect">
+
+  <div class="section-head">
+    <h2 style="color:#fcd34d;">Reflect / Review</h2>
+    <p>Regularly step back to keep your system <strong>current, complete, and trustworthy</strong>. The Weekly Review is the critical success factor of GTD.</p>
+  </div>
+
+  <!-- Daily -->
+  <div class="principle" style="border-left: 4px solid #f59e0b;">
+    <div class="key" style="color:#fcd34d;">Daily Review</div>
+    <p>Check your <strong>calendar</strong> for hard commitments. Scan your <strong>Next Actions</strong> lists by context. Adapt as the day evolves.</p>
+  </div>
+
+  <!-- Weekly Review -->
+  <div style="text-align:center; margin-bottom:1.2rem;">
+    <span style="font-size:1.1rem; font-weight:600; color:#fcd34d;">The Weekly Review</span>
+    <span style="color:#64748b; font-size:0.85rem; margin-left:0.5rem;">(~1-2 hours)</span>
+  </div>
+
+  <div class="review-steps">
+
+    <div class="review-step">
+      <div class="review-num" style="--rn-bg:#312e81; --rn-fg:#a5b4fc;">1</div>
+      <div>
+        <h4>Get Clear</h4>
+        <p>Collect loose papers &amp; materials. Empty all inboxes (email, notes, voicemail). Process every item to zero.</p>
+      </div>
+    </div>
+
+    <div class="review-step">
+      <div class="review-num" style="--rn-bg:#1e3a5f; --rn-fg:#93c5fd;">2</div>
+      <div>
+        <h4>Get Current</h4>
+        <p>Review Next Actions &mdash; mark off completed, add new ones. Review calendar (past 2 weeks for loose ends, upcoming 2 weeks for prep). Review Waiting For &mdash; follow up as needed. Review Projects list &mdash; ensure each has a next action. Review checklists for any triggered actions.</p>
+      </div>
+    </div>
+
+    <div class="review-step">
+      <div class="review-num" style="--rn-bg:#065f46; --rn-fg:#6ee7b7;">3</div>
+      <div>
+        <h4>Get Creative</h4>
+        <p>Review Someday/Maybe list &mdash; activate, keep, or remove items. Think about new ideas, goals, or projects. Be creative and courageous &mdash; evaluate from a higher perspective.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Horizons of Focus -->
+  <div style="text-align:center; margin: 2rem 0 1rem;">
+    <span style="font-size:1.1rem; font-weight:600; color:#fcd34d;">Horizons of Focus</span>
+    <span style="color:#64748b; font-size:0.85rem; margin-left:0.5rem;">(Periodic bigger-picture reviews)</span>
+  </div>
+
+  <div class="horizons">
+    <div class="horizon" style="background: rgba(239,68,68,0.15); border:1px solid rgba(239,68,68,0.3);">
+      <div class="h-label">Horizon 5</div>
+      <div class="h-title">Purpose &amp; Principles</div>
+    </div>
+    <div class="horizon-arrow"></div>
+    <div class="horizon" style="background: rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3);">
+      <div class="h-label">Horizon 4</div>
+      <div class="h-title">Long-term Vision (3-5 years)</div>
+    </div>
+    <div class="horizon-arrow"></div>
+    <div class="horizon" style="background: rgba(234,179,8,0.15); border:1px solid rgba(234,179,8,0.3);">
+      <div class="h-label">Horizon 3</div>
+      <div class="h-title">Goals &amp; Objectives (1-2 years)</div>
+    </div>
+    <div class="horizon-arrow"></div>
+    <div class="horizon" style="background: rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3);">
+      <div class="h-label">Horizon 2</div>
+      <div class="h-title">Areas of Focus &amp; Responsibility</div>
+    </div>
+    <div class="horizon-arrow"></div>
+    <div class="horizon" style="background: rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.3);">
+      <div class="h-label">Horizon 1</div>
+      <div class="h-title">Current Projects</div>
+    </div>
+    <div class="horizon-arrow"></div>
+    <div class="horizon" style="background: rgba(129,140,248,0.15); border:1px solid rgba(129,140,248,0.3);">
+      <div class="h-label">Ground Level</div>
+      <div class="h-title">Next Actions</div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ══════════════════════════════════════════════════
+     PHASE 5 — ENGAGE / DO
+     ══════════════════════════════════════════════════ -->
+<div class="panel" id="panel-engage">
+
+  <div class="section-head">
+    <h2 style="color:#fca5a5;">Engage / Do</h2>
+    <p>With a trusted system, you can <strong>choose what to do with confidence</strong>. Use these four criteria to decide what to work on right now.</p>
+  </div>
+
+  <div class="principle">
+    <div class="key" style="color:#fca5a5;">The Core Rule</div>
+    <p>Trust your system. If you've captured, clarified, organized, and reviewed, you can be present with whatever you choose to do &mdash; guilt-free.</p>
+  </div>
+
+  <div style="text-align:center; margin-bottom:1.2rem;">
+    <span style="font-size:1.05rem; font-weight:600; color:#fca5a5;">4 Criteria for Choosing Actions</span>
+  </div>
+
+  <div class="criteria-row">
+    <div class="criterion">
+      <div class="criterion-ring" style="--cr:#818cf8;">1</div>
+      <h4>Context</h4>
+      <p>What can you do <em>here</em> with the <em>tools</em> available? Filter your Next Actions by @context.</p>
+    </div>
+    <div class="criterion">
+      <div class="criterion-ring" style="--cr:#3b82f6;">2</div>
+      <h4>Time</h4>
+      <p>How much time do you have before your next commitment? Pick actions that fit the window.</p>
+    </div>
+    <div class="criterion">
+      <div class="criterion-ring" style="--cr:#10b981;">3</div>
+      <h4>Energy</h4>
+      <p>What is your current energy level? Match the action to your mental and physical state.</p>
+    </div>
+    <div class="criterion">
+      <div class="criterion-ring" style="--cr:#f59e0b;">4</div>
+      <h4>Priority</h4>
+      <p>Given context, time, and energy &mdash; what will give the <strong>highest return</strong>? Trust your intuition.</p>
+    </div>
+  </div>
+
+  <div style="text-align:center; margin: 2rem 0 1rem;">
+    <span style="font-size:1.05rem; font-weight:600; color:#fca5a5;">3 Models for Daily Work</span>
+  </div>
+
+  <div class="cards" style="max-width:750px;">
+    <div class="card">
+      <div class="card-accent" style="background: linear-gradient(90deg, #ef4444, #f87171);"></div>
+      <h3>Pre-defined Work</h3>
+      <p>Working through your Next Actions lists and calendar. The planned, known tasks you've already captured and organized.</p>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background: linear-gradient(90deg, #f59e0b, #fbbf24);"></div>
+      <h3>Work as It Appears</h3>
+      <p>Handling unexpected inputs &mdash; a colleague's request, urgent email, a sudden problem. Conscious choice to engage or capture for later.</p>
+    </div>
+    <div class="card">
+      <div class="card-accent" style="background: linear-gradient(90deg, #10b981, #34d399);"></div>
+      <h3>Defining Your Work</h3>
+      <p>Processing your inboxes, clarifying items, planning projects. The "meta-work" that keeps your system running.</p>
+    </div>
+  </div>
+
+  <div class="principle">
+    <div class="key" style="color:#fca5a5;">The Payoff</div>
+    <p>A "mind like water" &mdash; a state of readiness with no residual tension. You respond appropriately to whatever shows up because you trust that nothing is falling through the cracks.</p>
+  </div>
+</div>
+
+
+<!-- ── Footer ── -->
+<div class="footer">
+  Based on <em>Getting Things Done: The Art of Stress-Free Productivity</em> by David Allen
+</div>
+
+
+<!-- ── Tab switching logic ── -->
+<script>
+  const tabs = document.querySelectorAll('.phase');
+  const panels = document.querySelectorAll('.panel');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      panels.forEach(p => p.classList.remove('visible'));
+      tab.classList.add('active');
+      document.getElementById('panel-' + tab.dataset.panel).classList.add('visible');
+    });
+  });
+</script>
+
+</body>
+</html>
